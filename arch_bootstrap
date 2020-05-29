@@ -1,0 +1,38 @@
+#!/bin/bash
+
+efi_pr=/dev/sda1
+swap_pr=/dev/sda2
+root_pr=/dev/sda3
+home_pr=
+packages=""
+timezone=Europe/Warsaw
+locale="en_US.UTF-8 UTF-8\npl_PL.UTF-8 UTF-8"
+lang=en_US.UTF-8
+keymap=pl
+font=drdos8x16
+hostname=ArchPC
+
+cpu_vendor=$(lscpu | grep Vendor | awk -F ': +' '{print $2}')
+timedatectl set-ntp true
+mkfs.ext4 $root_pr && mount $root_pr /mnt
+mkfs.vfat -F32 $efi_pr && mkdir -p /mnt/boot && mount $efi_pr /mnt/boot
+if [[ -n $home_pr ]]; then
+	mkfs.ext4 $home_pr && mkdir -p /mnt/home && mount $home_pr /mnt/home
+fi
+if [[ -n $swap_pr ]]; then
+	mkswap $swap_pr && swapon $swap_pr
+fi
+pacstrap /mnt base-devel linux linux-firmware $packages
+genfstab -U /mnt >> /mnt/etc/fstab 
+
+
+arch-chroot /mnt
+ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
+hwclock --systohc
+echo -e $locale >> /etc/locale.gen
+locale-gen
+echo "LANG=$lang" >> /etc/locale.conf
+echo -e "KEYMAP=$keymap\nFONT=$font" >> /etc/vconsole.conf
+echo "$hostname" >> /etc/hostname
+echo -e "127.0.0.1\tlocalhost\n::1\tlocalhost\n127.0.1.1\t$hostname.localdomain\t$hostname" >> /etc/hosts
+passwd
