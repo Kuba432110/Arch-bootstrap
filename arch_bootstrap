@@ -4,14 +4,14 @@ efi_pr=/dev/sda1
 swap_pr=/dev/sda2
 root_pr=/dev/sda3
 home_pr=
-packages="lolcat cowsay nano"
+packages=""
 timezone=Europe/Warsaw
 locale="en_US.UTF-8 UTF-8\npl_PL.UTF-8 UTF-8"
 lang=en_US.UTF-8
 keymap=pl
 font=drdos8x16
 hostname=ArchPC
-kernel=linux-lts
+kernel=linux
 
 if [[ $(lscpu | grep Vendor | awk -F ': +' '{print $2}') == GenuineIntel ]]; then
 ucode=intel-ucode
@@ -27,7 +27,7 @@ fi
 if [[ -n $swap_pr ]]; then
 	mkswap $swap_pr && swapon $swap_pr
 fi
-pacstrap /mnt base-devel $kernel linux-firmware $ucode $packages
+pacstrap /mnt base base-devel $kernel linux-firmware $ucode $packages
 genfstab -U /mnt >> /mnt/etc/fstab
 echo -e $locale >> /mnt/etc/locale.gen
 echo "LANG=$lang" >> /mnt/etc/locale.conf
@@ -37,13 +37,14 @@ echo "$hostname" >> /mnt/etc/hostname
 echo "127.0.0.1 localhost
 ::1 localhost
 127.0.1.1 $hostname.localdomain $hostname" >> /mnt/etc/hosts
-echo "ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
+echo "#!/bin/bash
+ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 hwclock --systohc
 locale-gen
 passwd
-bootctl --path=/boot install
-" >> /mnt/chroot && chmod 755 /mnt/chroot
+bootctl --path=/boot install" >> /mnt/chroot && chmod 755 /mnt/chroot
 arch-chroot /mnt ./chroot
+rm /mnt/chroot
 echo "default arch.conf
 timeout 10 
 console-mode max
