@@ -4,15 +4,20 @@ efi_pr=/dev/sda1
 swap_pr=/dev/sda2
 root_pr=/dev/sda3
 home_pr=
-packages=""
+packages="lolcat cowsay nano"
 timezone=Europe/Warsaw
 locale="en_US.UTF-8 UTF-8\npl_PL.UTF-8 UTF-8"
 lang=en_US.UTF-8
 keymap=pl
 font=drdos8x16
 hostname=ArchPC
+kernel=linux-lts
 
-cpu_vendor=$(lscpu | grep Vendor | awk -F ': +' '{print $2}')
+if [[$(lscpu | grep Vendor | awk -F ': +' '{print $2}') == GenuineIntel]]; then
+ucode=intel-ucode
+elif [[$(lscpu | grep Vendor | awk -F ': +' '{print $2}') == AuthenticAMD]]; then
+ucode=amd-ucode
+fi
 timedatectl set-ntp true
 mkfs.ext4 $root_pr && mount $root_pr /mnt
 mkfs.vfat -F32 $efi_pr && mkdir -p /mnt/boot && mount $efi_pr /mnt/boot
@@ -22,17 +27,31 @@ fi
 if [[ -n $swap_pr ]]; then
 	mkswap $swap_pr && swapon $swap_pr
 fi
-pacstrap /mnt base-devel linux linux-firmware $packages
-genfstab -U /mnt >> /mnt/etc/fstab 
-
-
-arch-chroot /mnt
-ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
-hwclock --systohc
-echo -e $locale >> /etc/locale.gen
-locale-gen
-echo "LANG=$lang" >> /etc/locale.conf
-echo -e "KEYMAP=$keymap\nFONT=$font" >> /etc/vconsole.conf
-echo "$hostname" >> /etc/hostname
-echo -e "127.0.0.1\tlocalhost\n::1\tlocalhost\n127.0.1.1\t$hostname.localdomain\t$hostname" >> /etc/hosts
-passwd
+pacstrap /mnt base-devel $kernel linux-firmware $ucode $packages
+genfstab -U /mnt >> /mnt/etc/fstab
+echo -e $locale >> /mnt/etc/locale.gen
+echo "LANG=$lang" >> /mnt/etc/locale.conf
+echo "KEYMAP=$keymap
+FONT=$font" >> /mnt/etc/vconsole.conf
+echo "$hostname" >> /mnt/etc/hostname
+echo "127.0.0.1 localhost
+::1 localhost
+127.0.1.1 $hostname.localdomain $hostname" >> /mnt/etc/hosts
+arch-chroot /mnt ln -sf /usr/share/zoneinfo/$timezone /etc/localtime;hwclock --systohc;locale-gen;passwd;bootctl --path=/boot install;exit
+echo "default arch.conf
+timeout 10 
+console-mode max
+editor no" > /mnt/boot/loader/loader.conf
+echo "title Arch Linux
+linux /vmlinuz-$kernel" > /mnt/boot/loader/entries/arch.conf
+if [[ -n $ucode ]]; then
+	echo "initrd /$ucode.img" >> /mnt/boot/loader/entries/arch.conf
+fi
+echo "initrd /initramfs-$kernel.img
+options root="$root_pr" rw" >> /mnt/boot/loader/entries/arch.conf
+umount $efi_pr
+if [[ -n $home_pr ]]; then
+	umount $home_pr
+fi
+umount $root_pr
+reboot
