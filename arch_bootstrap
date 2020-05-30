@@ -13,9 +13,9 @@ font=drdos8x16
 hostname=ArchPC
 kernel=linux-lts
 
-if [[$(lscpu | grep Vendor | awk -F ': +' '{print $2}') == GenuineIntel]]; then
+if [[ $(lscpu | grep Vendor | awk -F ': +' '{print $2}') == GenuineIntel ]]; then
 ucode=intel-ucode
-elif [[$(lscpu | grep Vendor | awk -F ': +' '{print $2}') == AuthenticAMD]]; then
+elif [[ $(lscpu | grep Vendor | awk -F ': +' '{print $2}') == AuthenticAMD ]]; then
 ucode=amd-ucode
 fi
 timedatectl set-ntp true
@@ -37,7 +37,13 @@ echo "$hostname" >> /mnt/etc/hostname
 echo "127.0.0.1 localhost
 ::1 localhost
 127.0.1.1 $hostname.localdomain $hostname" >> /mnt/etc/hosts
-arch-chroot /mnt ln -sf /usr/share/zoneinfo/$timezone /etc/localtime;hwclock --systohc;locale-gen;passwd;bootctl --path=/boot install;exit
+echo "ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
+hwclock --systohc
+locale-gen
+passwd
+bootctl --path=/boot install
+" >> /mnt/chroot && chmod 755 /mnt/chroot
+arch-chroot /mnt ./chroot
 echo "default arch.conf
 timeout 10 
 console-mode max
